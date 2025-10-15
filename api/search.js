@@ -1,11 +1,12 @@
-// Файл: api/search.js (Исправленная версия)
+// Файл: api/search.js (Финальная, надежная версия)
 
 import { AsyncDuckDB, ConsoleLogger } from '@duckdb/duckdb-wasm';
 import path from 'path';
+import { promises as fs } from 'fs'; // <-- ДОБАВЛЕНО: импортируем файловую систему Node.js
 
 // --- НАСТРОЙКИ ---
 const ROOT_FOLDER_ID = '1QXot2uayhesa6XHFoi3bVvrtCQojCvxG'; 
-const INDEX_FILE = path.resolve('./data/drive_index.parquet');
+const INDEX_FILE_PATH = path.resolve('./data/drive_index.parquet');
 
 // --- Глобальная переменная для DuckDB ---
 let db = null;
@@ -16,17 +17,24 @@ async function initDB() {
     const logger = new ConsoleLogger();
     const _db = new AsyncDuckDB(logger);
     await _db.instantiate();
+
+    // --- НОВЫЙ, НАДЕЖНЫЙ СПОСОБ ЗАГРУЗКИ ФАЙЛА ---
+    // 1. Сначала читаем файл в память сами, используя Node.js
+    console.log(`Чтение файла из: ${INDEX_FILE_PATH}`);
+    const fileBuffer = await fs.readFile(INDEX_FILE_PATH);
+    console.log(`Файл успешно прочитан, размер: ${fileBuffer.byteLength} байт.`);
+
+    // 2. Регистрируем этот буфер данных в DuckDB как виртуальный файл
+    await _db.registerFileBuffer('drive_index.parquet', fileBuffer);
+    console.log('Файл-буфер зарегистрирован в DuckDB.');
+    // --------------------------------------------------
     
     const con = await _db.connect();
 
-    // Загружаем наш Parquet-файл как таблицу в памяти.
-    // ИСПРАВЛЕНО: con.run -> con.query
-    await con.query(`CREATE TABLE items AS SELECT * FROM '${INDEX_FILE}';`);
-    
-    console.log('Таблица "items" успешно создана из Parquet файла.');
+    // 3. Теперь создаем таблицу из этого ВИРТУАЛЬНОГО файла
+    await con.query(`CREATE TABLE items AS SELECT * FROM 'drive_index.parquet';`);
+    console.log('Таблица "items" успешно создана из виртуального Parquet файла.');
 
-    // Создаем карту для быстрого построения "хлебных крошек"
-    // ИСПРАВЛЕНО: con.run -> con.query
     await con.query(`
         CREATE TABLE breadcrumb_map AS 
         SELECT i, n, p 
@@ -41,7 +49,7 @@ async function initDB() {
 }
 
 
-// --- Главная функция-обработчик запросов ---
+// --- Главная функция-обработчик запросов (остается без изменений) ---
 export default async function handler(req, res) {
     try {
         const dbInstance = await initDB();
@@ -51,7 +59,6 @@ export default async function handler(req, res) {
         let responseData = { items: [], breadcrumbs: [] };
 
         if (searchTerm) {
-            // --- РЕЖИМ ПОИСКА ---
             const query = `
                 SELECT i, n, m, p
                 FROM items 
@@ -62,7 +69,6 @@ export default async function handler(req, res) {
             responseData.items = results.toArray().map(Object.fromEntries);
 
         } else {
-            // --- РЕЖИМ ПРОСМОТРА ПАПКИ ---
             const currentFolderId = (folderId === 'ROOT' || !folderId) ? ROOT_FOLDER_ID : folderId;
             
             const itemsQuery = `
