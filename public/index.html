@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Поиск по архиву</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Стили остаются без изменений -->
+  <style>
+    :root{ --brand:#6d5f51; --page-bg:#fdfaf2; --text-main:#3d352d; --text-light:#8a8175; --border-color:#d9d1c5; --sidebar-bg:#f9f7f4; --grid-item-size: 140px; }
+    *{box-sizing:border-box}
+    html,body{height:100%; margin: 0;}
+    body{ background:#fdfaf2; color:var(--text-main); font-family:'Lora',serif; padding:16px; }
+    .book-container{position:relative;max-width:1200px;margin:0 auto;}
+    .page-container{ background:var(--page-bg); border-radius:10px; border:1px solid #c9c1b3; }
+    .inner-pad{padding:24px}
+    
+    .archival-search { background-color: var(--sidebar-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 16px; margin-bottom: 24px; }
+    .archival-search summary { font-weight: 600; font-size: 1.2rem; cursor: pointer; color: var(--brand); }
+    .archival-search-form { margin-top: 16px; display: flex; flex-direction: column; gap: 12px; }
+    .archival-search-form select { width: 100%; height: 40px; padding: 0 12px; border: 1px solid var(--border-color); border-radius: 8px; font-family:'Lora',serif; font-size:.95rem; background-color: #fff; }
+    .archival-search-form select:disabled { background-color: #f5f5f5; color: #999; }
+    .archival-search-form .full-width { grid-column: 1 / -1; }
+    .archival-search-form .button-group { display: flex; gap: 8px; }
+    .archival-search-form button { width: 100%; height: 40px; border-radius: 8px; border: 1px solid var(--border-color); background: #fff; cursor: pointer; font-family:'Lora',serif; font-size:.95rem; padding: 0 12px; }
+    .archival-search-form button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .archival-search-form button.primary { background-color: var(--brand); border-color: var(--brand); color: #fff; }
+
+    .search-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+    .search-row > .input-group { flex: 1 1 120px; }
+    .search-row .button-group { flex: 0 1 auto; align-self: flex-end; display: flex; width: 100%;}
+    .search-row .button-group button { min-width: 100px; flex: 1; }
+    @media (min-width: 768px) {
+        .search-row .button-group { width: auto; }
+        .search-row > .input-group { min-width: 120px; }
+    }
+
+    .topbar { position:sticky; top:0; z-index:10; background:var(--page-bg); padding-bottom: 16px; margin-bottom: 16px; border-bottom:2px solid var(--border-color); }
+    .controls-row { display: flex; gap: 8px; align-items: center; }
+    #searchInput { width:100%; height:48px; padding:0 14px; border:1px solid var(--border-color); border-radius:10px; font-family:'Lora',serif; font-size:.95rem; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.05); }
+    .top-buttons, .view-controls { display: flex; flex-shrink: 0; }
+    .top-buttons a, .view-controls button { background: #fff; border: 1px solid var(--border-color); padding: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background-color 0.2s; }
+    .top-buttons a { color: var(--text-main); text-decoration: none; border-radius: 8px; margin-right: 8px; }
+    #download-folder-btn.disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+    .view-controls button:hover { background-color: var(--sidebar-bg); }
+    .view-controls button.active { background-color: var(--brand); color: #fff; border-color: var(--brand); }
+    .view-controls svg { width: 24px; height: 24px; }
+    #view-list-btn { border-radius: 8px 0 0 8px; border-right: none; }
+    #view-grid-btn { border-radius: 0; }
+    .zoom-controls { display: none; }
+    .zoom-controls button { border-left: none; }
+    .zoom-controls button:last-child { border-radius: 0 8px 8px 0; }
+    
+    #breadcrumbs { font-size: 0.9rem; color: var(--text-light); white-space: nowrap; overflow-x: auto; padding-top: 16px; scrollbar-width: none; -ms-overflow-style: none; }
+    #breadcrumbs::-webkit-scrollbar { display: none; }
+    #breadcrumbs a { color: var(--brand); text-decoration: none; cursor: pointer; }
+    #breadcrumbs a:hover { text-decoration: underline; }
+    #breadcrumbs span:not(.separator) { color: var(--text-main); font-weight: 600; }
+    #breadcrumbs .separator { margin: 0 8px; }
+    
+    #file-list { min-height: 300px; max-height: 60vh; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 14px; position: relative; background: #fff; }
+    #file-list.view-list .list-item { display: flex; align-items: center; padding: 12px 15px; border-bottom: 1px solid var(--border-color); font-size: 1rem; transition: background-color 0.2s; }
+    #file-list.view-list .list-item:last-child { border-bottom: none; }
+    #file-list.view-list .list-item:hover { background-color: var(--sidebar-bg); }
+    #file-list.view-list .list-item img { width: 20px; height: 20px; margin-right: 15px; flex-shrink: 0; }
+    .search-result-path { font-size: 12px; color: var(--text-light); margin-left: auto; padding-left: 15px; text-align: right; flex-shrink: 0; }
+    
+    #file-list.view-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--grid-item-size), 1fr)); gap: 16px; padding: 16px; }
+    #file-list.view-grid .list-item { display: flex; flex-direction: column; text-align: center; border: 1px solid transparent; border-radius: 8px; transition: all 0.2s; padding: 8px; }
+    #file-list.view-grid .list-item:hover { background-color: var(--sidebar-bg); border-color: var(--border-color); }
+    #file-list.view-grid .thumbnail-container { width: 100%; padding-top: 75%; position: relative; background-color: var(--sidebar-bg); border: 1px solid var(--border-color); border-radius: 6px; display: flex; align-items: center; justify-content: center; margin-bottom: 8px; overflow: hidden; }
+    #file-list.view-grid .thumbnail-container img, #file-list.view-grid .thumbnail-container svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+    #file-list.view-grid .thumbnail-container svg { padding: 20%; color: var(--text-light); }
+    #file-list.view-grid .item-name { font-size: 0.85rem; line-height: 1.3; word-break: break-word; }
+    
+    .list-item.clickable { cursor: pointer; }
+    a.list-item-link { color: var(--text-main); text-decoration: none; }
+    mark { background-color: #ffe082; padding: 1px 2px; border-radius: 3px; }
+    .message { text-align: center; padding: 40px 20px; color: var(--text-light); position: absolute; width: 100%; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 1.1rem; }
+    
+    #image-viewer { position: fixed; inset: 0; background-color: rgba(0,0,0,0.85); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0.3s; padding: 10px; overflow: hidden; }
+    #image-viewer.visible { opacity: 1; visibility: visible; }
+    #image-viewer .viewer-header, #image-viewer .viewer-footer { color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.5); text-align: center; padding: 10px; width: 100%; max-width: 90vw; flex-shrink: 0; }
+    .viewer-header { font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .viewer-header .current-image-name { font-weight: bold; }
+    .viewer-footer { display: flex; justify-content: center; align-items: center; gap: 8px; font-size: 1rem; }
+    .viewer-footer .page-jump-input { width: 60px; height: 30px; border:1px solid #555; background: #222; color: #fff; border-radius: 6px; text-align: center; font-family:'Lora',serif; font-size: 1rem; -moz-appearance: textfield; }
+    .viewer-footer button { background: none; border: none; color: #fff; cursor: pointer; padding: 5px; }
+    .viewer-footer button svg { width: 22px; height: 22px; }
+    #image-viewer .viewer-image-container { flex-grow: 1; min-height: 0; display:flex; align-items:center; justify-content:center; width: 100%; }
+    #image-viewer img { max-width: 100%; max-height: 100%; object-fit: contain; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-radius: 4px; transition: transform 0.2s ease-out; transform-origin: center center; }
+    #image-viewer img.is-zoomed { cursor: grab; }
+    #image-viewer img.is-zoomed:active { cursor: grabbing; }
+    #image-viewer .close-btn { position: absolute; top: 10px; right: 15px; width: 44px; height: 44px; background: none; border: none; color: white; font-size: 2.5rem; line-height: 1; cursor: pointer; }
+    .nav-btn { position: absolute; top: 50%; transform: translateY(-50%); background-color: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); color: white; font-size: 3rem; font-weight: 100; width: 50px; height: 80px; border-radius: 8px; cursor: pointer; z-index: 10000; display: flex; align-items: center; justify-content: center; transition: background-color 0.2s; }
+    .nav-btn:hover { background-color: rgba(0,0,0,0.5); }
+    .nav-btn[hidden] { display: none; }
+    .prev-btn { left: 20px; }
+    .next-btn { right: 20px; } 
+
+    @media (max-width: 768px) { body { padding: 8px; } .inner-pad { padding: 12px; } .archival-search-form .full-width { grid-column: 1 / -1; } #file-list { max-height: 75vh; } .nav-btn { width: 40px; height: 60px; font-size: 2rem; } .prev-btn { left: 5px; } .next-btn { right: 5px; } }
+  </style>
+</head>
+<body>
+  <div class="book-container">
+    <div class="page-container">
+      <div class="inner-pad">
+
+        <details class="archival-search" open>
+            <summary>Архивный поиск по делам</summary>
+            <!-- Архивный поиск временно отключен, т.к. требует отдельных API-запросов для каждого выпадающего списка -->
+            <div class="archival-search-form" style="display: none;"> 
+                <p>Эта функция будет реализована в будущем.</p>
+            </div>
+        </details>
+
+        <div class="topbar">
+          <div class="controls-row">
+            <input type="text" id="searchInput" placeholder="Поиск по архиву...">
+            <div class="top-buttons">
+                <!-- Кнопка скачивания папки отключена, т.к. требует сложной логики на сервере -->
+                <a id="download-folder-btn" title="Скачать папку (ZIP)" href="#" target="_blank" class="disabled"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M9,4H15V10H19L12,17L5,10H9V4M12,19A2,2 0 0,1 10,21H3A2,2 0 0,1 1,19V3A2,2 0 0,1 3,1H10V3H3V19H10A2,2 0 0,1 12,19Z" /></svg></a>
+            </div>
+            <div class="view-controls">
+              <button id="view-list-btn" class="active" title="Список"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M3,4H21V6H3V4M3,11H21V13H3V11M3,18H21V20H3V18Z" /></svg></button>
+              <button id="view-grid-btn" title="Сетка"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M3,3V11H11V3H3M9,9H5V5H9V9M3,13V21H11V13H3M9,19H5V15H9V19M13,3V11H21V3H13M19,9H15V5H19V9M13,13V21H21V13H13M19,19H15V15H19V19Z" /></svg></button>
+              <div class="zoom-controls">
+                <button id="zoom-out-btn" title="Увеличить превью"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M15.5,14L20.5,19L19,20.5L14,15.5V14.71L13.73,14.43C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.43,13.73L14.71,14H15.5M9.5,5A4.5,4.5 0 0,0 5,9.5A4.5,4.5 0 0,0 9.5,14A4.5,4.5 0 0,0 14,9.5A4.5,4.5 0 0,0 9.5,5M12,9H10V7H9V9H7V10H9V12H10V10H12V9Z" /></svg></button>
+                <button id="zoom-in-btn" title="Уменьшить превью"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M15.5,14H14.71L14.43,13.73C15.41,12.59 16,11.11 16,9.5A6.5,6.5 0 0,0 9.5,3A6.5,6.5 0 0,0 3,9.5A6.5,6.5 0 0,0 9.5,16C11.11,16 12.59,15.41 13.73,14.43L14,14.71V15.5L19,20.5L20.5,19L15.5,14M9.5,5A4.5,4.5 0 0,1 14,9.5A4.5,4.5 0 0,1 9.5,14A4.5,4.5 0 0,1 5,9.5A4.5,4.5 0 0,1 9.5,5M7,9H12V10H7V9Z" /></svg></button>
+              </div>
+            </div>
+          </div>
+          <div id="breadcrumbs"></div>
+        </div>
+        <main class="content">
+            <div id="file-list" class="view-list">
+                <!-- Содержимое будет загружаться динамически -->
+            </div>
+        </main>
+      </div>
+    </div>
+  </div>
+  <div id="image-viewer">
+    <div class="viewer-header" id="viewer-header"></div>
+    <div class="viewer-image-container"><img id="viewer-img" src="" alt="Просмотр изображения"></div>
+    <div class="viewer-footer">
+      <button id="zoom-out-viewer-btn" title="Отдалить"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M15.5,14H14.71L14.43,13.73C15.41,12.59 16,11.11 16,9.5A6.5,6.5 0 0,0 9.5,3A6.5,6.5 0 0,0 3,9.5A6.5,6.5 0 0,0 9.5,16C11.11,16 12.59,15.41 13.73,14.43L14,14.71V15.5L19,20.5L20.5,19L15.5,14M9.5,5A4.5,4.5 0 0,1 14,9.5A4.5,4.5 0 0,1 9.5,14A4.5,4.5 0 0,1 5,9.5A4.5,4.5 0 0,1 9.5,5M7,9H12V10H7V9Z" /></svg></button>
+      <button id="zoom-in-viewer-btn" title="Приблизить"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M15.5,14L20.5,19L19,20.5L14,15.5V14.71L13.73,14.43C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.43,13.73L14.71,14H15.5M9.5,5A4.5,4.5 0 0,0 5,9.5A4.5,4.5 0 0,0 9.5,14A4.5,4.5 0 0,0 14,9.5A4.5,4.5 0 0,0 9.5,5M12,9H10V7H9V9H7V10H9V12H10V10H12V9Z" /></svg></button>
+      <input type="number" class="page-jump-input" id="viewer-page-input" min="1">
+      <span>/</span>
+      <span id="viewer-page-total">0</span>
+      <button id="download-viewer-btn" title="Скачать изображение"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M5,20H19V18H5M19,9H15V3H9V9H5L12,16L19,9Z" /></svg></button>
+    </div>
+    <button class="close-btn">&times;</button>
+    <button class="nav-btn prev-btn" title="Предыдущее изображение (←)">‹</button>
+    <button class="nav-btn next-btn" title="Следующее изображение (→)">›</button>
+  </div>
+  
+  <!-- ОСНОВНОЙ СКРИПТ ПРИЛОЖЕНИЯ -->
+  <script>
+    // === DOM Элементы ===
+    const searchInput = document.getElementById('searchInput');
+    const breadcrumbsContainer = document.getElementById('breadcrumbs'); 
+    const fileListContainer = document.getElementById('file-list'); 
+    const imageViewer = document.getElementById('image-viewer'); 
+    const viewerImg = document.getElementById('viewer-img'); 
+    const viewListBtn = document.getElementById('view-list-btn'); 
+    const viewGridBtn = document.getElementById('view-grid-btn'); 
+    const prevBtn = document.querySelector('.prev-btn'); 
+    const nextBtn = document.querySelector('.next-btn'); 
+    const viewerHeader = document.getElementById('viewer-header'); 
+    const viewerPageInput = document.getElementById('viewer-page-input'); 
+    const viewerPageTotal = document.getElementById('viewer-page-total'); 
+    const zoomControls = document.querySelector('.zoom-controls'); 
+    const zoomInBtn = document.getElementById('zoom-in-btn'); 
+    const zoomOutBtn = document.getElementById('zoom-out-btn'); 
+    const downloadViewerBtn = document.getElementById('download-viewer-btn'); 
+    const zoomInViewerBtn = document.getElementById('zoom-in-viewer-btn'); 
+    const zoomOutViewerBtn = document.getElementById('zoom-out-viewer-btn');
+    
+    // === Состояние приложения ===
+    let debounceTimeout;
+    let currentViewMode = 'list';
+    let currentGridSize = 140;
+    let currentlyDisplayedItems = []; // Хранит только то, что сейчас на экране
+    let currentBreadcrumbs = [];     // Хранит текущий путь
+    
+    // Просмотрщик изображений
+    let viewerImageList = []; 
+    let currentImageIndex = -1; 
+    let viewerZoom = 1; 
+    let isPanning = false; 
+    let startPan = { x: 0, y: 0 }; 
+    let currentPan = { x: 0, y: 0 };
+
+    // --- НОВАЯ ЛОГИКА: ЗАПРОСЫ К НАШЕМУ СЕРВЕРУ ---
+
+    async function fetchAndDisplay({ folderId, searchTerm }) {
+        let url = '/api/search';
+        if (folderId) {
+            url += `?folderId=${folderId}`;
+        } else if (searchTerm) {
+            url += `?q=${encodeURIComponent(searchTerm)}`;
+        }
+
+        fileListContainer.innerHTML = `<div class="message">Загрузка...</div>`;
+
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`Ошибка сервера: ${response.statusText}`);
+            }
+            const data = await response.json();
+
+            // Сохраняем полученные данные в глобальное состояние
+            currentlyDisplayedItems = data.items || [];
+            currentBreadcrumbs = data.breadcrumbs || [];
+
+            // Отображаем
+            displayItems(currentlyDisplayedItems, !!searchTerm, searchTerm);
+            renderBreadcrumbs(currentBreadcrumbs);
+
+        } catch (error) {
+            console.error('Ошибка при получении данных:', error);
+            fileListContainer.innerHTML = `<div class="message">Не удалось загрузить данные.</div>`;
+        }
+    }
+
+    // --- ОТОБРАЖЕНИЕ ЭЛЕМЕНТОВ (почти без изменений) ---
+
+    function displayItems(items, isSearchResult = false, query = '') {
+        fileListContainer.innerHTML = '';
+        if (items.length === 0) {
+            fileListContainer.innerHTML = `<div class="message">${isSearchResult ? 'Ничего не найдено' : 'Эта папка пуста'}.</div>`;
+            return;
+        }
+        items.forEach(item => fileListContainer.appendChild(createListItem(item, isSearchResult, query)));
+    }
+
+    function createListItem(item, isSearchResult, query) {
+        const itemElement = document.createElement('div');
+        itemElement.className = 'list-item';
+        
+        const isImage = item.m?.startsWith('image/');
+        const isFolder = item.m === 'application/vnd.google-apps.folder';
+
+        // Генерируем ссылки на лету
+        const webViewLink = `https://drive.google.com/file/d/${item.i}/view`;
+        const iconLink = `https://drive-thirdparty.googleusercontent.com/16/type/${item.m}`;
+        const thumbnailLink = isImage ? `https://lh3.googleusercontent.com/d/${item.i}=s220` : null;
+
+        if (currentViewMode === 'list') {
+            const icon = document.createElement('img');
+            icon.src = isFolder ? 'https://ssl.gstatic.com/docs/doclist/images/2020/folder_color_24dp.png' : iconLink;
+            itemElement.appendChild(icon);
+        } else { // Grid view
+            const thumbContainer = document.createElement('div');
+            thumbContainer.className = 'thumbnail-container';
+            if (isImage && thumbnailLink) {
+                const thumbImg = document.createElement('img');
+                thumbImg.src = thumbnailLink;
+                thumbContainer.appendChild(thumbImg);
+            } else {
+                const iconSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+                iconSvg.setAttribute("viewBox", "0 0 24 24");
+                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                path.setAttribute("fill", "currentColor");
+                path.setAttribute("d", isFolder ? "M10,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V8C22,6.89 21.1,6 20,6H12L10,4Z" : "M13,9H18.5L13,3.5V9M6,2H14L20,8V20A2,2 0 0,1 18,22H6C4.89,22 4,21.1 4,20V4C4,2.89 4.89,2 6,2M15,18H6V16H15V18M18,14H6V12H18V14Z");
+                iconSvg.appendChild(path);
+                thumbContainer.appendChild(iconSvg);
+            }
+            itemElement.appendChild(thumbContainer);
+        }
+        
+        const nameEl = document.createElement('span');
+        nameEl.className = 'item-name';
+        nameEl.innerHTML = highlightText(item.n, query);
+
+        if (isFolder) {
+            itemElement.classList.add('clickable');
+            itemElement.onclick = () => fetchAndDisplay({ folderId: item.i });
+            itemElement.appendChild(nameEl);
+        } else if (isImage) {
+            itemElement.classList.add('clickable');
+            itemElement.onclick = () => openImageViewer(item.i);
+            itemElement.appendChild(nameEl);
+        } else {
+            const link = document.createElement('a');
+            link.href = webViewLink;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.className = 'list-item-link';
+            link.appendChild(nameEl);
+            itemElement.appendChild(link);
+        }
+
+        if (isSearchResult && item.path) {
+            const pathSpan = document.createElement('span');
+            pathSpan.className = 'search-result-path';
+            pathSpan.textContent = item.path;
+            itemElement.appendChild(pathSpan);
+        }
+
+        return itemElement;
+    }
+    
+    function renderBreadcrumbs(breadcrumbs) {
+        breadcrumbsContainer.innerHTML = '';
+        if (!breadcrumbs) return;
+
+        breadcrumbs.forEach((pathItem, index) => {
+            if (index > 0) {
+                const sep = document.createElement('span');
+                sep.className = 'separator';
+                sep.textContent = '/';
+                breadcrumbsContainer.appendChild(sep);
+            }
+            if (index < breadcrumbs.length - 1) {
+                const link = document.createElement('a');
+                link.textContent = pathItem.n;
+                link.onclick = (e) => { e.preventDefault(); fetchAndDisplay({ folderId: pathItem.i }); };
+                breadcrumbsContainer.appendChild(link);
+            } else {
+                const span = document.createElement('span');
+                span.textContent = pathItem.n;
+                breadcrumbsContainer.appendChild(span);
+            }
+        });
+    }
+
+    // --- ЛОГИКА ПРОСМОТРЩИКА ИЗОБРАЖЕНИЙ (почти без изменений) ---
+    
+    function openImageViewer(clickedFileId) {
+        resetViewerZoom();
+        viewerImageList = currentlyDisplayedItems.filter(item => item.m?.startsWith('image/'));
+        currentImageIndex = viewerImageList.findIndex(img => img.i === clickedFileId);
+        if (currentImageIndex === -1) return;
+        renderViewerHeader();
+        showImageAtIndex(currentImageIndex);
+        imageViewer.classList.add('visible');
+        window.addEventListener('keydown', handleViewerKeys);
+    }
+
+    function showImageAtIndex(index) {
+        if (index < 0 || index >= viewerImageList.length) return;
+        resetViewerZoom();
+        currentImageIndex = index;
+        const item = viewerImageList[index];
+        // Генерируем ссылку на полное изображение
+        viewerImg.src = `https://lh3.googleusercontent.com/d/${item.i}`; 
+        prevBtn.hidden = (index === 0);
+        nextBtn.hidden = (index >= viewerImageList.length - 1);
+        viewerPageInput.value = index + 1;
+        viewerPageTotal.textContent = viewerImageList.length;
+        viewerPageInput.max = viewerImageList.length;
+        renderViewerHeader(item.n);
+    }
+    
+    function closeImageViewer() {
+        imageViewer.classList.remove('visible');
+        viewerImg.src = '';
+        window.removeEventListener('keydown', handleViewerKeys);
+    }
+    
+    function renderViewerHeader(currentImageName = '') {
+        const pathString = currentBreadcrumbs.map(p => p.n).join(' / ');
+        viewerHeader.innerHTML = `${pathString} / <span class="current-image-name">${currentImageName}</span>`;
+    }
+
+    function handleViewerKeys(e) {
+        if (e.key === 'Escape') closeImageViewer();
+        if (e.key === 'ArrowLeft' && !prevBtn.hidden) showImageAtIndex(currentImageIndex - 1);
+        if (e.key === 'ArrowRight' && !nextBtn.hidden) showImageAtIndex(currentImageIndex + 1);
+    }
+
+    // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ И ОБРАБОТЧИКИ ---
+
+    function setViewMode(mode) {
+        if (currentViewMode === mode) return;
+        currentViewMode = mode;
+        fileListContainer.className = `view-${mode}`;
+        viewListBtn.classList.toggle('active', mode === 'list');
+        viewGridBtn.classList.toggle('active', mode === 'grid');
+        zoomControls.style.display = (mode === 'grid') ? 'flex' : 'none';
+        const isSearching = searchInput.value.trim().length > 1;
+        displayItems(currentlyDisplayedItems, isSearching, searchInput.value.trim());
+    }
+
+    function highlightText(text, query) {
+        if (!query || !text) return text;
+        const esc = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return text.replace(new RegExp(`(${esc})`, 'gi'), `<mark>$1</mark>`);
+    }
+    
+    // --- Инициализация и обработчики событий ---
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // Загружаем содержимое корневой папки при старте
+        fetchAndDisplay({ folderId: 'ROOT' });
+        applyGridSize();
+    });
+
+    searchInput.addEventListener('input', (e) => {
+        clearTimeout(debounceTimeout);
+        const searchTerm = e.target.value.trim();
+        if (searchTerm.length > 2) {
+            debounceTimeout = setTimeout(() => {
+                fetchAndDisplay({ searchTerm });
+            }, 300);
+        } else if (searchTerm.length === 0) {
+            // Если поле поиска очистили, возвращаемся к корневой папке
+            fetchAndDisplay({ folderId: 'ROOT' });
+        }
+    });
+    
+    // Остальные обработчики без изменений
+    viewListBtn.addEventListener('click', () => setViewMode('list'));
+    viewGridBtn.addEventListener('click', () => setViewMode('grid'));
+    imageViewer.addEventListener('click', (e) => { if(e.target === imageViewer || e.target.classList.contains('close-btn')) closeImageViewer() });
+    prevBtn.addEventListener('click', () => showImageAtIndex(currentImageIndex - 1));
+    nextBtn.addEventListener('click', () => showImageAtIndex(currentImageIndex + 1));
+    downloadViewerBtn.addEventListener('click', () => { const item = viewerImageList[currentImageIndex]; if (item) window.open(`https://lh3.googleusercontent.com/d/${item.i}=w10000-h10000-s0`, '_blank'); });
+    viewerPageInput.addEventListener('change', (e) => { let page = parseInt(e.target.value, 10); if (!isNaN(page)) showImageAtIndex(Math.max(1, Math.min(viewerImageList.length, page)) - 1); });
+    zoomInBtn.addEventListener('click', () => { currentGridSize = Math.max(80, currentGridSize - 20); applyGridSize(); });
+    zoomOutBtn.addEventListener('click', () => { currentGridSize = Math.min(240, currentGridSize + 20); applyGridSize(); });
+    zoomInViewerBtn.addEventListener('click', () => changeViewerZoom(0.5)); 
+    zoomOutViewerBtn.addEventListener('click', () => changeViewerZoom(-0.5));
+    function applyGridSize() { fileListContainer.style.setProperty('--grid-item-size', `${currentGridSize}px`); }
+    function resetViewerZoom() { viewerZoom = 1; isPanning = false; startPan = { x: 0, y: 0 }; currentPan = { x: 0, y: 0 }; viewerImg.classList.remove('is-zoomed'); applyViewerTransform(); }
+    function applyViewerTransform() { viewerImg.style.transform = `translate(${currentPan.x}px, ${currentPan.y}px) scale(${viewerZoom})`; }
+    function changeViewerZoom(delta) { const newZoom = Math.max(1, Math.min(5, viewerZoom + delta)); if (newZoom === 1) { resetViewerZoom(); } else { viewerZoom = newZoom; viewerImg.classList.add('is-zoomed'); } applyViewerTransform(); }
+    viewerImg.addEventListener('mousedown', (e) => { if (viewerZoom > 1) { isPanning = true; startPan = { x: e.clientX - currentPan.x, y: e.clientY - currentPan.y }; e.preventDefault(); } });
+    viewerImg.addEventListener('mousemove', (e) => { if (isPanning) { currentPan = { x: e.clientX - startPan.x, y: e.clientY - startPan.y }; applyViewerTransform(); } });
+    viewerImg.addEventListener('mouseup', () => isPanning = false); 
+    viewerImg.addEventListener('mouseleave', () => isPanning = false);
+    viewerImg.addEventListener('wheel', (e) => { if(imageViewer.classList.contains('visible')) { e.preventDefault(); changeViewerZoom(e.deltaY * -0.01); } });
+
+  </script>
+</body>
+</html>

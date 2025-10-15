@@ -1,0 +1,12 @@
+{
+  "name": "google-drive-search-app",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node api/search.js"
+  },
+  "dependencies": {
+    "@duckdb/duckdb-wasm": "1.28.0"
+  }
+}
